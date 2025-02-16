@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 
-const EXTERNAL_API_URL = "http://94.136.189.162:3000";
+const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL;
 
 export async function GET(request: Request) {
 	try {
+		if (!EXTERNAL_API_URL) {
+			throw new Error("EXTERNAL_API_URL is not defined");
+		}
+
 		const { searchParams } = new URL(request.url);
 		const roomName = searchParams.get("room");
+		const isViewOnly = searchParams.get("view") === "true";
 
 		if (!roomName) {
 			return NextResponse.json(
@@ -14,8 +19,10 @@ export async function GET(request: Request) {
 			);
 		}
 
-		// Generate a random user ID
-		const userId = `user_${Math.random().toString(36).slice(2, 7)}`;
+		// Generate a random user ID with view-only prefix if needed
+		const userId = `${isViewOnly ? "viewer_" : "user_"}${Math.random()
+			.toString(36)
+			.slice(2, 7)}`;
 
 		// Forward request to external API
 		const response = await fetch(

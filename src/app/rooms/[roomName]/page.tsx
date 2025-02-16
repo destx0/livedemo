@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, use } from "react";
 import {
 	LiveKitRoom,
 	VideoConference,
@@ -13,13 +13,16 @@ import {
 	RoomConnectOptions,
 } from "livekit-client";
 import "@livekit/components-styles";
+import { StreamPlayer } from "@/components/StreamPlayer";
 
 function VideoConferenceComponent({
 	serverUrl,
 	token,
+	isViewOnly = false,
 }: {
 	serverUrl: string;
 	token: string;
+	isViewOnly?: boolean;
 }) {
 	const roomOptions = useMemo(
 		(): RoomOptions => ({
@@ -47,23 +50,48 @@ function VideoConferenceComponent({
 			token={token}
 			connectOptions={connectOptions}
 			serverUrl={serverUrl}
-			audio={true}
-			video={true}
+			audio={!isViewOnly}
+			video={!isViewOnly}
 		>
-			<VideoConference chatMessageFormatter={formatChatMessageLinks} />
+			{isViewOnly ? (
+				<div className="flex h-full">
+					<div className="flex-1">
+						<StreamPlayer />
+					</div>
+					<div className="w-80 border-l border-gray-200 dark:border-gray-800">
+						{/* Add chat component here if needed */}
+					</div>
+				</div>
+			) : (
+				<VideoConference
+					chatMessageFormatter={formatChatMessageLinks}
+				/>
+			)}
 		</LiveKitRoom>
 	);
 }
 
-export default function RoomPage({ params }: { params: { roomName: string } }) {
+export default function RoomPage({
+	params,
+	searchParams,
+}: {
+	params: Promise<{ roomName: string }>;
+	searchParams: Promise<{ view?: string }>;
+}) {
 	const [token, setToken] = useState<string>();
 	const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL!;
+
+	const unwrappedParams = use(params);
+	const unwrappedSearchParams = use(searchParams);
+	const isViewOnly = unwrappedSearchParams.view === "true";
 
 	useEffect(() => {
 		const getToken = async () => {
 			try {
 				const response = await fetch(
-					`/api/get-token?room=${params.roomName}`
+					`/api/get-token?room=${unwrappedParams.roomName}${
+						isViewOnly ? "&view=true" : ""
+					}`
 				);
 				const data = await response.json();
 				setToken(data.token);
@@ -73,7 +101,7 @@ export default function RoomPage({ params }: { params: { roomName: string } }) {
 		};
 
 		getToken();
-	}, [params.roomName]);
+	}, [unwrappedParams.roomName, isViewOnly]);
 
 	if (!serverUrl) {
 		return <h2>Missing LiveKit URL</h2>;
@@ -91,7 +119,11 @@ export default function RoomPage({ params }: { params: { roomName: string } }) {
 
 	return (
 		<main data-lk-theme="default" className="h-screen">
-			<VideoConferenceComponent serverUrl={serverUrl} token={token} />
+			<VideoConferenceComponent
+				serverUrl={serverUrl}
+				token={token}
+				isViewOnly={isViewOnly}
+			/>
 		</main>
 	);
 }
