@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import {
 	LiveKitRoom,
 	VideoConference,
@@ -15,10 +15,10 @@ import {
 import "@livekit/components-styles";
 
 function VideoConferenceComponent({
-	liveKitUrl,
+	serverUrl,
 	token,
 }: {
-	liveKitUrl: string;
+	serverUrl: string;
 	token: string;
 }) {
 	const roomOptions = useMemo(
@@ -46,7 +46,7 @@ function VideoConferenceComponent({
 			room={room}
 			token={token}
 			connectOptions={connectOptions}
-			serverUrl={liveKitUrl}
+			serverUrl={serverUrl}
 			audio={true}
 			video={true}
 		>
@@ -55,26 +55,43 @@ function VideoConferenceComponent({
 	);
 }
 
-export default function RoomPage({
-	searchParams,
-}: {
-	searchParams: {
-		liveKitUrl?: string;
-		token?: string;
-	};
-}) {
-	const { liveKitUrl, token } = searchParams;
+export default function RoomPage({ params }: { params: { roomName: string } }) {
+	const [token, setToken] = useState<string>();
+	const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL!;
 
-	if (!liveKitUrl) {
+	useEffect(() => {
+		const getToken = async () => {
+			try {
+				const response = await fetch(
+					`/api/get-token?room=${params.roomName}`
+				);
+				const data = await response.json();
+				setToken(data.token);
+			} catch (error) {
+				console.error("Error getting token:", error);
+			}
+		};
+
+		getToken();
+	}, [params.roomName]);
+
+	if (!serverUrl) {
 		return <h2>Missing LiveKit URL</h2>;
 	}
 	if (!token) {
-		return <h2>Missing LiveKit token</h2>;
+		return (
+			<div className="grid h-screen place-items-center">
+				<div className="text-center">
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+					<p>Connecting to room...</p>
+				</div>
+			</div>
+		);
 	}
 
 	return (
 		<main data-lk-theme="default" className="h-screen">
-			<VideoConferenceComponent liveKitUrl={liveKitUrl} token={token} />
+			<VideoConferenceComponent serverUrl={serverUrl} token={token} />
 		</main>
 	);
 }
